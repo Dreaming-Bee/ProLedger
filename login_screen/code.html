@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#5048e5",
+              "background-light": "#f6f6f8",
+              "background-dark": "#121121",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<title>ProLedger - Login</title>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased">
+<div class="min-h-screen flex flex-col lg:flex-row">
+<!-- Left Side: Branding Area -->
+<div class="relative hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-primary overflow-hidden">
+<!-- Decorative Background Element -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<svg class="h-full w-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<defs>
+<pattern height="10" id="grid" patternunits="userSpaceOnUse" width="10">
+<path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100" width="100"></rect>
+</svg>
+</div>
+<div class="relative z-10 flex items-center gap-3 text-white">
+<div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-3xl">account_balance_wallet</span>
+</div>
+<h1 class="text-2xl font-bold tracking-tight">ProLedger</h1>
+</div>
+<div class="relative z-10">
+<blockquote class="space-y-4">
+<p class="text-4xl font-semibold leading-tight text-white/90">
+                        "The most advanced financial management platform for modern enterprises."
+                    </p>
+<footer class="text-lg text-white/70">
+                        — Trusted by over 10,000 businesses globally.
+                    </footer>
+</blockquote>
+</div>
+<div class="relative z-10 flex gap-4">
+<div class="h-1 w-12 bg-white rounded-full"></div>
+<div class="h-1 w-12 bg-white/30 rounded-full"></div>
+<div class="h-1 w-12 bg-white/30 rounded-full"></div>
+</div>
+</div>
+<!-- Right Side: Login Form -->
+<div class="flex-1 flex flex-col justify-center items-center px-6 py-12 lg:px-24">
+<div class="w-full max-w-md space-y-8">
+<!-- Mobile Header -->
+<div class="lg:hidden flex items-center gap-3 mb-12">
+<div class="bg-primary p-2 rounded-lg">
+<span class="material-symbols-outlined text-white text-2xl">account_balance_wallet</span>
+</div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">ProLedger</h2>
+</div>
+<div class="space-y-2">
+<h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                        Welcome back
+                    </h2>
+<p class="text-slate-500 dark:text-slate-400">
+                        Enter your credentials to access your ProLedger account.
+                    </p>
+</div>
+<form class="space-y-6" onsubmit="return false;">
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="email">
+                            Email Address
+                        </label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 text-xl">mail</span>
+</div>
+<input autocomplete="email" class="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200" id="email" name="email" placeholder="name@company.com" required="" type="email"/>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="password">
+                                Password
+                            </label>
+<a class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" href="#">
+                                Forgot password?
+                            </a>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 text-xl">lock</span>
+</div>
+<input autocomplete="current-password" class="block w-full pl-10 pr-12 py-3 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" type="button">
+<span class="material-symbols-outlined text-xl">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex items-center">
+<input class="h-4 w-4 text-primary focus:ring-primary border-slate-300 rounded cursor-pointer" id="remember-me" name="remember-me" type="checkbox"/>
+<label class="ml-2 block text-sm text-slate-700 dark:text-slate-300 cursor-pointer" for="remember-me">
+                            Keep me logged in
+                        </label>
+</div>
+<div>
+<button class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200" type="submit">
+                            Sign in to Account
+                        </button>
+</div>
+</form>
+<div class="relative">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-slate-200 dark:border-slate-800"></div>
+</div>
+<div class="relative flex justify-center text-sm">
+<span class="px-2 bg-background-light dark:bg-background-dark text-slate-500">Or continue with</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<img alt="Google Logo" class="h-5 w-5" data-alt="Official Google icon colored logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-JQUSicIbkSXu41UU_L330Hs63u-TN_UmuigL23G7ibR5Z-GgyghOaq-5j7ogbMjPk-aCfoGdeiS9IqVHLnBq6uridY-7668SSgt7jAxp8KvDWrONAMcL6iNYJxAaaUPr8SHpxh6EqyI0g7rUpjVkegYr0YHZX_PBrmxHhLdOb2PHgIp6W0E7ll3a5kemHRk-RyEXB-_3znV8YT7AyW7lzkd_X9wswxRB3WbONa9rsQiMAwqkHgOXDaECy4hN2nS8bON04y0as6Od"/>
+                        Google
+                    </button>
+<button class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<img alt="Apple Logo" class="h-5 w-5" data-alt="Official Apple monochrome logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwLDeVwcaadpkszuBwng-QvfwUG7T-h_VEosQCBxR97pQoYZRjoRicluqKqUUPTNpxHBWpg916nENGOqoP4K3CSrgYbqk7OJHRSgdq2JbVKtoI51SWzRxgLdM44IBP_z7rj6XIfmEVNSIxrfD4nuYq41iYoh5jI9U6WZkjI8bgw78OUjDgWpCi4p6_5Tp_cGP5vUf-8EFPbztIZhKUbfYnnwPKhmv5FWJDdxr0y-cBbhLaXLRiORocc6qRFPFo9VBcoLpLyyXPqyjs"/>
+                        Apple
+                    </button>
+</div>
+<p class="text-center text-sm text-slate-500 dark:text-slate-400">
+                    Don't have an account yet? 
+                    <a class="font-bold text-primary hover:text-primary/80 transition-colors" href="#">
+                        Create an account
+                    </a>
+</p>
+</div>
+<!-- Footer Links -->
+<div class="mt-12 flex gap-6 text-xs text-slate-400 uppercase tracking-widest font-semibold">
+<a class="hover:text-slate-600 transition-colors" href="#">Terms</a>
+<a class="hover:text-slate-600 transition-colors" href="#">Privacy</a>
+<a class="hover:text-slate-600 transition-colors" href="#">Contact</a>
+</div>
+</div>
+</div>
+</body></html>
