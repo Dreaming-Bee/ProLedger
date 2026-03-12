@@ -222,7 +222,10 @@ export default function DashboardPage() {
                     Manage your latest transactions
                   </p>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors">
+                <button 
+                  onClick={() => router.push("/invoices/create")}
+                  className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors"
+                >
                   <span className="material-symbols-outlined text-sm">add</span>
                   Create Invoice
                 </button>
@@ -298,7 +301,10 @@ export default function DashboardPage() {
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex justify-center border-t border-slate-200 dark:border-slate-800">
-                <button className="text-primary text-xs font-bold hover:underline">
+                <button 
+                  onClick={() => router.push("/invoices")}
+                  className="text-primary text-xs font-bold hover:underline"
+                >
                   View All Invoices
                 </button>
               </div>

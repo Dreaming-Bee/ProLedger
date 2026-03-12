@@ -24,7 +24,7 @@ export default function AppHeader({
   }
 
   return (
-    <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-4 flex items-center justify-between">
+    <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-4 flex items-center justify-between no-print">
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
           {title}

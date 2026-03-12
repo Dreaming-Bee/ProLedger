@@ -118,6 +118,65 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24 bg-white dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-4xl md:text-6xl font-black tracking-tighter">Simple pricing for teams.</h2>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Get started for free and upgrade as you grow. No hidden fees.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-10 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-8">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold">Free Plan</h3>
+                <p className="text-slate-500 text-sm">Best for freelancers just starting out.</p>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-black">$0</span>
+                <span className="text-slate-500 text-sm">/month</span>
+              </div>
+              <ul className="space-y-4">
+                {["Up to 5 Invoices/month", "Standard Templates", "Client Directory", "Email Support"].map((feature) => (
+                  <li key={feature} className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <span className="material-symbols-outlined text-green-500 text-lg">check_circle</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register" className="block w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                Get Started
+              </Link>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="bg-primary p-10 rounded-3xl border border-primary/20 space-y-8 text-white relative shadow-2xl shadow-primary/30">
+              <div className="absolute top-6 right-6 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">Popular</div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-white">Pro Plan</h3>
+                <p className="text-white/70 text-sm">Power features for growing businesses.</p>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-black text-white">$29</span>
+                <span className="text-white/70 text-sm">/month</span>
+              </div>
+              <ul className="space-y-4">
+                {["Unlimited Invoices", "Premium Branding & Logo", "WhatsApp Integration", "Detailed Reports", "Priority 24/7 Support"].map((feature) => (
+                  <li key={feature} className="flex items-center gap-3 text-sm text-white/90">
+                    <span className="material-symbols-outlined text-white text-lg">check_circle</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register" className="block w-full py-4 bg-white text-primary text-center font-black rounded-xl hover:scale-[1.02] shadow-xl transition-all">
+                Go Pro Now
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-24 overflow-hidden relative">
         <div className="max-w-7xl mx-auto px-6">

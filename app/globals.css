@@ -29,3 +29,89 @@
 .text-pretty {
   text-wrap: pretty;
 }
+/* Print Optimization */
+@media print {
+  .no-print,
+  aside,
+  header,
+  footer,
+  nav,
+  button,
+  .modal-overlay,
+  .no-print-area {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Reset layout for print */
+  .grid, .flex {
+    display: block !important;
+  }
+
+  .print-content {
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  /* Ensure children of print-content are visible */
+  .print-content * {
+    visibility: visible !important;
+    display: block !important;
+  }
+  
+  /* Tables need table display */
+  .print-content table {
+    display: table !important;
+    width: 100% !important;
+  }
+  
+  .print-content tr {
+    display: table-row !important;
+  }
+  
+  .print-content th, .print-content td {
+    display: table-cell !important;
+  }
+
+  /* Flex containers that should stay flex in print (like totals) */
+  .print-content .flex {
+    display: flex !important;
+  }
+
+  /* Hide specific sidebars */
+  .lg\:col-span-1 {
+    display: none !important;
+  }
+
+  .lg\:col-span-2 {
+    width: 100% !important;
+  }
+
+  /* Force light mode */
+  .dark {
+    color-scheme: light !important;
+    background-color: white !important;
+    color: black !important;
+  }
+}
+

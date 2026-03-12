@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
+import Sidebar from "@/components/sidebar"
+import AppHeader from "@/components/app-header"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
 
 export default function CreateInvoicePage() {
   const router = useRouter()
-  const [lineItems, setLineItems] = useState([
-    { id: 1, description: "Branding & Identity Suite", qty: 1, price: 2500 },
-    { id: 2, description: "UI/UX Design - Mobile App", qty: 40, price: 85 },
-  ])
-  const [taxRate, setTaxRate] = useState(8)
+  const invoiceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const isAuth = localStorage.getItem("auth")
@@ -18,34 +18,187 @@ export default function CreateInvoicePage() {
     }
   }, [router])
 
-  const subtotal = lineItems.reduce((sum, item) => sum + item.qty * item.price, 0)
+  const [lineItems, setLineItems] = useState([
+    { id: 1, description: "Professional Services", qty: 1, price: 1200 },
+    { id: 2, description: "Software License", qty: 5, price: 45 },
+  ])
+  const [taxRate, setTaxRate] = useState(8)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [clientWhatsApp, setClientWhatsApp] = useState("+15551234567")
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const subtotal = lineItems.reduce((acc, item) => acc + item.qty * item.price, 0)
   const tax = (subtotal * taxRate) / 100
   const total = subtotal + tax
 
   const addLineItem = () => {
-    const newId = Math.max(...lineItems.map((i) => i.id)) + 1
-    setLineItems([
-      ...lineItems,
-      { id: newId, description: "", qty: 1, price: 0 },
-    ])
+    setLineItems([...lineItems, { id: Date.now(), description: "", qty: 1, price: 0 }])
   }
 
   const removeLineItem = (id: number) => {
     setLineItems(lineItems.filter((item) => item.id !== id))
   }
 
-  const updateLineItem = (id: number, field: string, value: any) => {
+  const updateLineItem = (id: number, field: string, value: string | number) => {
     setLineItems(
-      lineItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      lineItems.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     )
   }
 
+  const generatePDFBlob = async () => {
+    if (!invoiceRef.current) return null
+    setIsGenerating(true)
+    try {
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      })
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+      return pdf.output("blob")
+    } catch (error) {
+      console.error("PDF Generation failed", error)
+      return null
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleWhatsAppShare = async () => {
+    const pdfBlob = await generatePDFBlob()
+    if (!pdfBlob) {
+      alert("Failed to generate PDF for sharing.")
+      return
+    }
+
+    const file = new File([pdfBlob], `Invoice.pdf`, { type: "application/pdf" })
+    
+    // Try Web Share API
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `New Invoice`,
+          text: `Hi! Here is your new invoice from ProLedger.`
+        })
+        setShowSendModal(false)
+        return
+      } catch (err) {
+        console.log("Share failed", err)
+      }
+    }
+
+    const message = encodeURIComponent(`Hi! Here is your invoice for $${total.toFixed(2)}. (Generated via ProLedger)`)
+    window.open(`https://wa.me/${clientWhatsApp.replace(/\D/g, "")}/?text=${message}`, "_blank")
+    setShowSendModal(false)
+  }
+
+  const handleDownload = async () => {
+    const pdfBlob = await generatePDFBlob()
+    if (pdfBlob) {
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `Invoice.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    }
+    setShowSendModal(false)
+  }
+
   return (
-    <div className="layout-container flex h-full grow flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+    <div className="layout-container flex h-full grow flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 relative">
+      {/* Send Modal */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSendModal(false)} />
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-8 animate-fade-in-up">
+            <div className="flex justify-between items-start">
+              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-3xl">mark_email_read</span>
+              </div>
+              <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Finalize Invoice</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Choose how you would like to deliver the invoice for $ {total.toFixed(2)}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={handleDownload}
+                disabled={isGenerating}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-primary/5 border border-slate-100 dark:border-slate-700 hover:border-primary/20 transition-all group disabled:opacity-50"
+              >
+                <div className="size-12 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-primary group-hover:text-white transition-colors">
+                  {isGenerating ? (
+                    <div className="size-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
+                  ) : (
+                    <span className="material-symbols-outlined">download</span>
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {isGenerating ? "Preparing PDF..." : "Download PDF"}
+                  </p>
+                  <p className="text-[10px] text-slate-500">Generate a high-quality PDF document</p>
+                </div>
+              </button>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 bg-[#25D366] text-white rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="material-symbols-outlined">chat</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Share via WhatsApp</p>
+                    <p className="text-[10px] text-slate-500">Send direct to client's phone</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <input 
+                    type="tel" 
+                    value={clientWhatsApp}
+                    onChange={(e) => setClientWhatsApp(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                  <button 
+                    onClick={handleWhatsAppShare}
+                    disabled={isGenerating}
+                    className="px-4 py-2 bg-[#25D366] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {isGenerating ? "..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                alert("Invoices saved successfully!");
+                router.push("/dashboard");
+              }}
+              className="w-full py-4 text-slate-400 hover:text-primary text-xs font-black uppercase tracking-widest transition-colors"
+            >
+              Just Save to Database
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 md:px-10 py-4 sticky top-0 z-10">
+      <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 md:px-10 py-4 sticky top-0 z-10 no-print">
         <div className="flex items-center gap-4">
           <div className="text-primary">
             <span className="material-symbols-outlined text-3xl">
@@ -63,14 +216,20 @@ export default function CreateInvoicePage() {
           >
             Cancel
           </button>
-          <button className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold transition-opacity hover:opacity-90">
+          <button 
+            onClick={() => {
+              alert("Invoice draft saved successfully!");
+              router.push("/invoices");
+            }}
+            className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold transition-opacity hover:opacity-90"
+          >
             Save Invoice
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-5xl mx-auto w-full p-6 md:p-10 space-y-8 overflow-y-auto">
+      <main ref={invoiceRef} className="flex-1 max-w-5xl mx-auto w-full p-6 md:p-10 space-y-8 overflow-y-auto bg-white dark:bg-slate-950">
         {/* Title */}
         <div className="flex flex-col gap-2">
           <h1 className="text-slate-900 dark:text-slate-100 text-3xl md:text-4xl font-black tracking-tight">
@@ -292,7 +451,10 @@ export default function CreateInvoicePage() {
             </div>
 
             <div className="pt-6">
-              <button className="w-full py-3 bg-primary text-white font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
+              <button 
+                onClick={() => setShowSendModal(true)}
+                className="w-full py-3 bg-primary text-white font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+              >
                 <span className="material-symbols-outlined">send</span>
                 Finalize & Send Invoice
               </button>

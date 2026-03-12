@@ -92,7 +92,10 @@ export default function ClientsPage() {
               <span className="material-symbols-outlined">notifications</span>
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
             </button>
-            <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20">
+            <button 
+              onClick={() => router.push("/clients/add")}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20"
+            >
               <span className="material-symbols-outlined text-[20px]">
                 person_add
               </span>

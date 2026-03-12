@@ -1,21 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Sidebar from "@/components/sidebar"
 import AppHeader from "@/components/app-header"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
 
 export default function InvoiceDetailPage() {
   const router = useRouter()
   const params = useParams()
   const id = params?.id
+  const invoiceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const isAuth = localStorage.getItem("auth")
     if (!isAuth) {
-      router.push("/")
+      router.push("/login")
     }
   }, [router])
+
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [clientWhatsApp, setClientWhatsApp] = useState("+15551234567")
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Mock data for a single invoice
   const invoice = {
@@ -45,8 +52,150 @@ export default function InvoiceDetailPage() {
     ],
   }
 
+  const generatePDFBlob = async () => {
+    if (!invoiceRef.current) return null
+    setIsGenerating(true)
+    try {
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      })
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+      return pdf.output("blob")
+    } catch (error) {
+      console.error("PDF Generation failed", error)
+      return null
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleWhatsAppShare = async () => {
+    const pdfBlob = await generatePDFBlob()
+    if (!pdfBlob) {
+      alert("Failed to generate PDF for sharing.")
+      return
+    }
+
+    const file = new File([pdfBlob], `${invoice.number}.pdf`, { type: "application/pdf" })
+    
+    // Try Web Share API if available (best for mobile)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoice.number}`,
+          text: `Hi! Here is your invoice ${invoice.number} from ProLedger.`
+        })
+        setShowSendModal(false)
+        return
+      } catch (err) {
+        console.log("Share failed, falling back to link", err)
+      }
+    }
+
+    // Fallback for Desktop/Non-Share browsers
+    const message = encodeURIComponent(`Hi! I've attached your invoice ${invoice.number} for your review. (Please download the PDF from the ProLedger dashboard)`)
+    window.open(`https://wa.me/${clientWhatsApp.replace(/\D/g, "")}/?text=${message}`, "_blank")
+    setShowSendModal(false)
+  }
+
+  const handleDownload = async () => {
+    const pdfBlob = await generatePDFBlob()
+    if (pdfBlob) {
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${invoice.number}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    }
+    setShowSendModal(false)
+  }
+
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden relative">
+      {/* Send Modal */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSendModal(false)} />
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-8 animate-fade-in-up">
+            <div className="flex justify-between items-start">
+              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-3xl">mark_email_read</span>
+              </div>
+              <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Deliver Invoice</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Choose how you would like to share <strong>{invoice.number}</strong></p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={handleDownload}
+                disabled={isGenerating}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-primary/5 border border-slate-100 dark:border-slate-700 transition-all group disabled:opacity-50"
+              >
+                <div className="size-12 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-primary group-hover:text-white transition-colors">
+                  {isGenerating ? (
+                    <div className="size-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
+                  ) : (
+                    <span className="material-symbols-outlined">download</span>
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {isGenerating ? "Preparing PDF..." : "Download PDF"}
+                  </p>
+                  <p className="text-[10px] text-slate-500">Save a copy to your computer</p>
+                </div>
+              </button>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 bg-[#25D366] text-white rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="material-symbols-outlined">chat</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Share via</p>
+                    <p className="text-[10px] text-slate-500">Send direct to client's phone</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <input 
+                    type="tel" 
+                    value={clientWhatsApp}
+                    onChange={(e) => setClientWhatsApp(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                  <button 
+                    onClick={handleWhatsAppShare}
+                    disabled={isGenerating}
+                    className="px-4 py-2 bg-[#25D366] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {isGenerating ? "..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <AppHeader 
@@ -56,7 +205,7 @@ export default function InvoiceDetailPage() {
 
         <div className="p-8 max-w-5xl mx-auto space-y-8">
           {/* Actions Bar */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between no-print">
             <button 
               onClick={() => router.back()}
               className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-bold transition-colors"
@@ -65,11 +214,17 @@ export default function InvoiceDetailPage() {
               Back to List
             </button>
             <div className="flex gap-3">
-              <button className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors">
+              <button 
+                onClick={handleDownload}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors"
+              >
                 <span className="material-symbols-outlined text-lg">download</span>
                 Download PDF
               </button>
-              <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-opacity">
+              <button 
+                onClick={() => setShowSendModal(true)}
+                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-opacity"
+              >
                 <span className="material-symbols-outlined text-lg">send</span>
                 Send to Client
               </button>
@@ -78,7 +233,7 @@ export default function InvoiceDetailPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Invoice Card */}
-            <div className="lg:col-span-2 space-y-8">
+            <div id="invoice-card" ref={invoiceRef} className="lg:col-span-2 space-y-8 print-content">
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 {/* Visual Header */}
                 <div className="h-2 bg-primary" />
