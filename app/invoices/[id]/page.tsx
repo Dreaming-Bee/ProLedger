@@ -1,56 +1,128 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Sidebar from "@/components/sidebar"
 import AppHeader from "@/components/app-header"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
+interface CompanySettings {
+  businessName: string
+  email: string
+  phone: string
+  address: string
+  logoUrl: string | null
+  brandColor: string
+  taxRate: number
+  currency: string
+}
+
 export default function InvoiceDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const id = params?.id
+  const id = params?.id as string
   const invoiceRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const isAuth = localStorage.getItem("auth")
-    if (!isAuth) {
-      router.push("/login")
-    }
-  }, [router])
 
   const [showSendModal, setShowSendModal] = useState(false)
   const [clientWhatsApp, setClientWhatsApp] = useState("+15551234567")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [shareToken, setShareToken] = useState<string | null>(null)
+  const [shareUrl, setShareUrl] = useState("")
+  const [copied, setCopied] = useState(false)
+  const [invoice, setInvoice] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [company, setCompany] = useState<CompanySettings>({
+    businessName: "ProLedger Inc.",
+    email: "billing@proledger.com",
+    phone: "",
+    address: "456 Finance Way, New York, NY 10001",
+    logoUrl: null,
+    brandColor: "#4F46E5",
+    taxRate: 8,
+    currency: "USD",
+  })
 
-  // Mock data for a single invoice
-  const invoice = {
-    number: "INV-2024-001",
-    status: "Paid",
-    statusColor: "text-green-600 bg-green-50",
-    statusDot: "bg-green-500",
-    date: "April 12, 2024",
-    dueDate: "May 12, 2024",
-    client: {
-      name: "Acme Marketing",
-      contact: "John Doe",
-      email: "john@acme.com",
-      address: "123 Business Ave, San Francisco, CA 94107",
-    },
-    items: [
-      { id: 1, description: "Website Design", qty: 1, price: 3000 },
-      { id: 2, description: "SEO Optimization", qty: 10, price: 150 },
-    ],
-    subtotal: 4500,
-    tax: 360,
-    total: 4860,
-    history: [
-      { date: "Apr 12, 2024 10:30 AM", event: "Invoice Created", user: "Admin" },
-      { date: "Apr 12, 2024 10:35 AM", event: "Invoice Sent to john@acme.com", user: "System" },
-      { date: "Apr 15, 2024 02:20 PM", event: "Payment Received", user: "System" },
-    ],
+  useEffect(() => {
+    const isAuth = localStorage.getItem("auth")
+    if (!isAuth) router.push("/login")
+  }, [router])
+
+  const loadCompanySettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings")
+      if (res.ok) {
+        const data = await res.json()
+        setCompany(data)
+      }
+    } catch (err) {
+      console.error("Failed to load company settings", err)
+    }
+  }, [])
+
+  const loadInvoiceData = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/invoices/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setInvoice(data)
+      } else {
+        console.error("Failed to load invoice")
+      }
+    } catch (err) {
+      console.error("Failed to load invoice data", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  // Generate/get share token for this invoice
+  const initShareToken = useCallback(async () => {
+    if (!id) return
+    try {
+      const res = await fetch(`/api/invoices/${id}/share-token`, { method: "POST" })
+      if (res.ok) {
+        const data = await res.json()
+        setShareToken(data.token)
+        setShareUrl(`${window.location.origin}/p/${data.token}`)
+      }
+    } catch (err) {
+      console.error("Failed to generate share token", err)
+    }
+  }, [id])
+
+  useEffect(() => {
+    loadCompanySettings()
+    loadInvoiceData()
+    initShareToken()
+  }, [loadCompanySettings, loadInvoiceData, initShareToken])
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // fallback
+      const el = document.createElement("input")
+      el.value = shareUrl
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand("copy")
+      document.body.removeChild(el)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
+
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: company.currency || "USD" }).format(amount)
+
+  const accentColor = company.brandColor || "#4F46E5"
 
   const generatePDFBlob = async () => {
     if (!invoiceRef.current) return null
@@ -60,7 +132,7 @@ export default function InvoiceDetailPage() {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
       })
       const imgData = canvas.toDataURL("image/png")
       const pdf = new jsPDF("p", "mm", "a4")
@@ -83,26 +155,17 @@ export default function InvoiceDetailPage() {
       alert("Failed to generate PDF for sharing.")
       return
     }
-
     const file = new File([pdfBlob], `${invoice.number}.pdf`, { type: "application/pdf" })
-    
-    // Try Web Share API if available (best for mobile)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({
-          files: [file],
-          title: `Invoice ${invoice.number}`,
-          text: `Hi! Here is your invoice ${invoice.number} from ProLedger.`
-        })
+        await navigator.share({ files: [file], title: `Invoice ${invoice.number}`, text: `Hi! Here is your invoice ${invoice.number} from ${company.businessName}.` })
         setShowSendModal(false)
         return
       } catch (err) {
-        console.log("Share failed, falling back to link", err)
+        console.log("Share fell back", err)
       }
     }
-
-    // Fallback for Desktop/Non-Share browsers
-    const message = encodeURIComponent(`Hi! I've attached your invoice ${invoice.number} for your review. (Please download the PDF from the ProLedger dashboard)`)
+    const message = encodeURIComponent(`Hi! I've attached your invoice ${invoice.number} for your review.${shareUrl ? ` View online: ${shareUrl}` : ""}`)
     window.open(`https://wa.me/${clientWhatsApp.replace(/\D/g, "")}/?text=${message}`, "_blank")
     setShowSendModal(false)
   }
@@ -120,17 +183,41 @@ export default function InvoiceDetailPage() {
     setShowSendModal(false)
   }
 
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+      </div>
+    )
+  }
+
+  if (!invoice) {
+    return (
+      <div className="flex h-screen items-center justify-center flex-col gap-4">
+        <p className="text-xl font-bold">Invoice not found</p>
+        <button onClick={() => router.back()} className="text-indigo-600 font-bold underline">Go Back</button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen overflow-hidden relative">
+      {/* Copied Toast */}
+      {copied && (
+        <div className="fixed top-6 right-6 z-50 px-5 py-3 bg-green-500 text-white rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 animate-fade-in-up">
+          <span className="material-symbols-outlined text-base">check_circle</span>
+          Link copied to clipboard!
+        </div>
+      )}
+
       {/* Send Modal */}
       {showSendModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSendModal(false)} />
           <div className="relative bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-8 animate-fade-in-up">
             <div className="flex justify-between items-start">
-              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-3xl">mark_email_read</span>
+              <div className="size-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: accentColor + "20" }}>
+                <span className="material-symbols-outlined text-3xl" style={{ color: accentColor }}>mark_email_read</span>
               </div>
               <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                 <span className="material-symbols-outlined">close</span>
@@ -143,7 +230,27 @@ export default function InvoiceDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              <button 
+              {/* Share Link Option */}
+              {shareUrl && (
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-primary/5 border border-slate-100 dark:border-slate-700 transition-all group"
+                >
+                  <div
+                    className="size-12 rounded-xl flex items-center justify-center shadow-sm group-hover:text-white transition-colors text-white"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    <span className="material-symbols-outlined">link</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Copy Share Link</p>
+                    <p className="text-[10px] text-slate-500 truncate max-w-[220px]">{shareUrl}</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Download PDF */}
+              <button
                 onClick={handleDownload}
                 disabled={isGenerating}
                 className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-primary/5 border border-slate-100 dark:border-slate-700 transition-all group disabled:opacity-50"
@@ -156,33 +263,31 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    {isGenerating ? "Preparing PDF..." : "Download PDF"}
-                  </p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{isGenerating ? "Preparing PDF..." : "Download PDF"}</p>
                   <p className="text-[10px] text-slate-500">Save a copy to your computer</p>
                 </div>
               </button>
 
+              {/* WhatsApp */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="size-12 bg-[#25D366] text-white rounded-xl flex items-center justify-center shadow-sm">
                     <span className="material-symbols-outlined">chat</span>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Share via</p>
-                    <p className="text-[10px] text-slate-500">Send direct to client's phone</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Share via WhatsApp</p>
+                    <p className="text-[10px] text-slate-500">Send direct to client&apos;s phone</p>
                   </div>
                 </div>
-                
                 <div className="flex gap-2">
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     value={clientWhatsApp}
                     onChange={(e) => setClientWhatsApp(e.target.value)}
                     className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                     placeholder="+1 (555) 000-0000"
                   />
-                  <button 
+                  <button
                     onClick={handleWhatsAppShare}
                     disabled={isGenerating}
                     className="px-4 py-2 bg-[#25D366] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
@@ -198,15 +303,15 @@ export default function InvoiceDetailPage() {
 
       <Sidebar />
       <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
-        <AppHeader 
-          title={`Invoice ${invoice.number}`} 
+        <AppHeader
+          title={`Invoice ${invoice.number}`}
           subtitle="View and manage invoice details"
         />
 
         <div className="p-8 max-w-5xl mx-auto space-y-8">
           {/* Actions Bar */}
           <div className="flex items-center justify-between no-print">
-            <button 
+            <button
               onClick={() => router.back()}
               className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-bold transition-colors"
             >
@@ -214,16 +319,17 @@ export default function InvoiceDetailPage() {
               Back to List
             </button>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={handleDownload}
                 className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">download</span>
                 Download PDF
               </button>
-              <button 
+              <button
                 onClick={() => setShowSendModal(true)}
-                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-opacity"
+                className="px-4 py-2 text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: accentColor }}
               >
                 <span className="material-symbols-outlined text-lg">send</span>
                 Send to Client
@@ -235,17 +341,28 @@ export default function InvoiceDetailPage() {
             {/* Main Invoice Card */}
             <div id="invoice-card" ref={invoiceRef} className="lg:col-span-2 space-y-8 print-content">
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                {/* Visual Header */}
-                <div className="h-2 bg-primary" />
-                
+                {/* Brand accent bar */}
+                <div style={{ height: "6px", backgroundColor: accentColor }} />
+
                 <div className="p-10 space-y-10">
-                  {/* Branding & Info */}
+                  {/* Branding & Invoice Info */}
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
-                      <div className="bg-primary p-2 rounded-lg">
-                        <span className="material-symbols-outlined text-white text-2xl">account_balance_wallet</span>
-                      </div>
-                      <h3 className="text-xl font-black tracking-tight">ProLedger</h3>
+                      {company.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={company.logoUrl}
+                          alt="Company logo"
+                          className="h-12 w-auto object-contain rounded-lg"
+                        />
+                      ) : (
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: accentColor + "20" }}>
+                          <span className="material-symbols-outlined text-2xl" style={{ color: accentColor }}>
+                            account_balance_wallet
+                          </span>
+                        </div>
+                      )}
+                      <h3 className="text-xl font-black tracking-tight">{company.businessName}</h3>
                     </div>
                     <div className="text-right">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-2 ${invoice.statusColor}`}>
@@ -260,15 +377,16 @@ export default function InvoiceDetailPage() {
                   <div className="grid grid-cols-2 gap-12">
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">From</p>
-                      <div className="text-sm">
-                        <p className="font-bold text-slate-900 dark:text-slate-100">ProLedger Inc.</p>
-                        <p className="text-slate-500 dark:text-slate-400">billing@proledger.com</p>
-                        <p className="text-slate-500 dark:text-slate-400">456 Finance Way, New York, NY 10001</p>
+                      <div className="text-sm space-y-1">
+                        <p className="font-bold text-slate-900 dark:text-slate-100">{company.businessName}</p>
+                        {company.email && <p className="text-slate-500 dark:text-slate-400">{company.email}</p>}
+                        {company.phone && <p className="text-slate-500 dark:text-slate-400">{company.phone}</p>}
+                        {company.address && <p className="text-slate-500 dark:text-slate-400">{company.address}</p>}
                       </div>
                     </div>
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bill To</p>
-                      <div className="text-sm">
+                      <div className="text-sm space-y-1">
                         <p className="font-bold text-slate-900 dark:text-slate-100">{invoice.client.name}</p>
                         <p className="text-slate-500 dark:text-slate-400">{invoice.client.email}</p>
                         <p className="text-slate-500 dark:text-slate-400">{invoice.client.address}</p>
@@ -280,11 +398,15 @@ export default function InvoiceDetailPage() {
                   <div className="grid grid-cols-2 gap-12 pt-6 border-t border-slate-100 dark:border-slate-800">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date Issued</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{invoice.date}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {new Date(invoice.date).toLocaleDateString()}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Due Date</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{invoice.dueDate}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {new Date(invoice.dueDate).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
 
@@ -306,8 +428,8 @@ export default function InvoiceDetailPage() {
                               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.description}</p>
                             </td>
                             <td className="py-5 text-sm text-slate-600 dark:text-slate-400 text-center font-medium">{item.qty}</td>
-                            <td className="py-5 text-sm text-slate-600 dark:text-slate-400 text-right font-medium">${item.price.toFixed(2)}</td>
-                            <td className="py-5 text-sm font-bold text-slate-900 dark:text-slate-100 text-right">${(item.qty * item.price).toFixed(2)}</td>
+                            <td className="py-5 text-sm text-slate-600 dark:text-slate-400 text-right font-medium">{formatCurrency(item.price)}</td>
+                            <td className="py-5 text-sm font-bold text-slate-900 dark:text-slate-100 text-right">{formatCurrency(item.qty * item.price)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -319,15 +441,15 @@ export default function InvoiceDetailPage() {
                     <div className="w-full max-w-[240px] space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-500 font-medium">Subtotal</span>
-                        <span className="text-slate-900 dark:text-slate-100 font-bold">${invoice.subtotal.toFixed(2)}</span>
+                        <span className="text-slate-900 dark:text-slate-100 font-bold">{formatCurrency(invoice.subtotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-500 font-medium">Tax (8%)</span>
-                        <span className="text-slate-900 dark:text-slate-100 font-bold">${invoice.tax.toFixed(2)}</span>
+                        <span className="text-slate-500 font-medium">Tax ({company.taxRate}%)</span>
+                        <span className="text-slate-900 dark:text-slate-100 font-bold">{formatCurrency(invoice.tax)}</span>
                       </div>
                       <div className="pt-3 border-t-2 border-slate-100 dark:border-slate-800 flex justify-between items-center">
                         <span className="text-base font-black text-slate-900 dark:text-slate-100">Total</span>
-                        <span className="text-xl font-black text-primary">${invoice.total.toFixed(2)}</span>
+                        <span className="text-xl font-black" style={{ color: accentColor }}>{formatCurrency(invoice.total)}</span>
                       </div>
                     </div>
                   </div>
@@ -349,36 +471,49 @@ export default function InvoiceDetailPage() {
               {/* History Timeline */}
               <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Activity Timeline</h4>
-                <div className="space-y-6">
-                  {invoice.history.map((h, i) => (
+                 <div className="space-y-6">
+                  {invoice.history?.map((h: any, i: number) => (
                     <div key={i} className="flex gap-4 relative">
                       {i < invoice.history.length - 1 && (
                         <div className="absolute left-[7px] top-4 bottom-[-24px] w-0.5 bg-slate-100 dark:bg-slate-800" />
                       )}
-                      <div className="size-4 rounded-full border-2 border-primary bg-white z-10 shrink-0" />
+                      <div className="size-4 rounded-full border-2 bg-white z-10 shrink-0" style={{ borderColor: accentColor }} />
                       <div className="space-y-1">
                         <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{h.event}</p>
-                        <p className="text-[10px] text-slate-500">{h.date} • {h.user}</p>
+                        <p className="text-[10px] text-slate-500">{h.date} · {h.user}</p>
                       </div>
                     </div>
-                  ))}
+                  )) || (
+                    <div className="text-xs text-slate-400">No activity yet</div>
+                  )}
                 </div>
               </div>
 
-              {/* Share Link */}
-              <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 space-y-4">
-                <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest">Public Share Link</h4>
+              {/* Public Share Link */}
+              <div className="rounded-2xl p-6 space-y-4" style={{ backgroundColor: accentColor + "0D", border: `1px solid ${accentColor}30` }}>
+                <h4 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>Public Share Link</h4>
                 <div className="flex gap-2">
-                  <input 
-                    readOnly 
-                    value={`https://proledger.io/p/${id}`} 
-                    className="flex-1 bg-white dark:bg-slate-900 border border-primary/20 rounded-lg px-3 py-2 text-[10px] font-medium text-slate-600"
+                  <input
+                    readOnly
+                    value={shareUrl || (shareToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/p/${shareToken}` : "Generating link…")}
+                    className="flex-1 bg-white dark:bg-slate-900 border rounded-lg px-3 py-2 text-[10px] font-medium text-slate-600"
+                    style={{ borderColor: accentColor + "30" }}
                   />
-                  <button className="bg-primary text-white p-2 rounded-lg hover:bg-primary/90 transition-colors">
-                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                  <button
+                    onClick={handleCopyLink}
+                    disabled={!shareUrl}
+                    className="text-white p-2 rounded-lg hover:opacity-90 transition-all disabled:opacity-40"
+                    style={{ backgroundColor: accentColor }}
+                    title="Copy link"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {copied ? "check" : "content_copy"}
+                    </span>
                   </button>
                 </div>
-                <p className="text-[10px] text-primary/70 font-medium">Clients can view and pay via this link without logging in.</p>
+                <p className="text-[10px] font-medium" style={{ color: accentColor + "B3" }}>
+                  Clients can view this invoice via this link without logging in.
+                </p>
               </div>
             </div>
           </div>

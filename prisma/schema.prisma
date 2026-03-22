@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
@@ -35,6 +36,7 @@ model Invoice {
   subtotal    Float
   tax         Float
   total       Float
+  shareToken  String?    @unique
   client      Client     @relation(fields: [clientId], references: [id])
   clientId    String
   items       LineItem[]
@@ -50,4 +52,18 @@ model LineItem {
   total       Float
   invoice     Invoice  @relation(fields: [invoiceId], references: [id])
   invoiceId   String
+}
+
+model CompanySettings {
+  id           String   @id @default(cuid())
+  businessName String   @default("My Company")
+  email        String   @default("")
+  phone        String   @default("")
+  address      String   @default("")
+  logoUrl      String?
+  brandColor   String   @default("#4F46E5")
+  taxRate      Float    @default(8)
+  currency     String   @default("USD")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

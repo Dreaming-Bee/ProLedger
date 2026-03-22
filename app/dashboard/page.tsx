@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Sidebar from "@/components/sidebar"
 import AppHeader from "@/components/app-header"
@@ -15,19 +15,49 @@ export default function DashboardPage() {
     }
   }, [router])
 
-  const stats = [
+  const [data, setData] = useState<any>(null)
+  const [company, setCompany] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [dashRes, settingsRes] = await Promise.all([
+          fetch("/api/dashboard"),
+          fetch("/api/settings")
+        ])
+        if (dashRes.ok && settingsRes.ok) {
+          const dashData = await dashRes.json()
+          const settingsData = await settingsRes.json()
+          setData(dashData)
+          setCompany(settingsData)
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard data", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [])
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: company?.currency || "USD" }).format(amount)
+
+  const stats = data ? [
     {
       label: "Total Revenue",
-      value: "$128,430.00",
-      change: "+12.5%",
+      value: formatCurrency(data.stats.totalRevenue),
+      change: "+12.5%", // These could be calculated if we had historical data
       trend: "up",
       icon: "account_balance",
       bgColor: "bg-primary/10",
       iconColor: "text-primary",
     },
     {
-      label: "Outstanding Invoices",
-      value: "42",
+      label: "Pending Amount",
+      value: formatCurrency(data.stats.pendingAmount),
       change: "+3.2%",
       trend: "up",
       icon: "pending_actions",
@@ -36,7 +66,7 @@ export default function DashboardPage() {
     },
     {
       label: "Paid Invoices",
-      value: "156",
+      value: data.stats.breakdown.paid.toString(),
       change: "+8.4%",
       trend: "up",
       icon: "check_circle",
@@ -45,7 +75,7 @@ export default function DashboardPage() {
     },
     {
       label: "Overdue Invoices",
-      value: "12",
+      value: data.stats.breakdown.overdue.toString(),
       change: "-2.1%",
       trend: "down",
       icon: "error_outline",
@@ -53,54 +83,19 @@ export default function DashboardPage() {
       iconColor: "text-red-600",
       textColor: "text-red-600",
     },
-  ]
+  ] : []
 
-  const recentInvoices = [
-    {
-      id: 1,
-      client: "Acme Marketing",
-      invoice: "INV-2024-001",
-      initials: "AM",
-      date: "Apr 12, 2024",
-      amount: "$4,500.00",
-      status: "Paid",
-      statusColor: "bg-green-100 text-green-700",
-      statusDot: "bg-green-500",
-    },
-    {
-      id: 2,
-      client: "Global Tech",
-      invoice: "INV-2024-002",
-      initials: "GT",
-      date: "Apr 14, 2024",
-      amount: "$2,100.00",
-      status: "Pending",
-      statusColor: "bg-amber-100 text-amber-700",
-      statusDot: "bg-amber-500",
-    },
-    {
-      id: 3,
-      client: "Design Studio",
-      invoice: "INV-2024-003",
-      initials: "DS",
-      date: "Apr 15, 2024",
-      amount: "$8,940.00",
-      status: "Overdue",
-      statusColor: "bg-red-100 text-red-700",
-      statusDot: "bg-red-500",
-    },
-    {
-      id: 4,
-      client: "Eco Logistics",
-      invoice: "INV-2024-004",
-      initials: "EL",
-      date: "Apr 16, 2024",
-      amount: "$1,250.00",
-      status: "Paid",
-      statusColor: "bg-green-100 text-green-700",
-      statusDot: "bg-green-500",
-    },
-  ]
+  const recentInvoices = data ? data.recentInvoices.map((inv: any) => ({
+    id: inv.id,
+    client: inv.client.name,
+    invoice: inv.number,
+    initials: inv.client.initials,
+    date: new Date(inv.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    amount: formatCurrency(inv.total),
+    status: inv.status,
+    statusColor: inv.statusColor.replace("text-", "text-").replace("bg-", "bg-"), // Ensure correct classes
+    statusDot: inv.statusDot,
+  })) : []
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -116,7 +111,12 @@ export default function DashboardPage() {
         />
 
         {/* Content */}
-        <div className="p-8 space-y-8">
+        {loading ? (
+          <div className="p-8 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          </div>
+        ) : (
+          <div className="p-8 space-y-8">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, idx) => (
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {recentInvoices.map((invoice) => (
+                    {recentInvoices.map((invoice: { id: Key | null | undefined; initials: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; client: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; invoice: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; date: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; amount: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; statusColor: any; statusDot: any; status: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined }) => (
                       <tr
                         key={invoice.id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
@@ -311,7 +311,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
-  )
+      )}
+    </main>
+  </div>
+)
 }

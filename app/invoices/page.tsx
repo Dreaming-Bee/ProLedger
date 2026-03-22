@@ -16,13 +16,39 @@ export default function InvoicesPage() {
     }
   }, [router])
 
-  const invoices = [
-    { id: 1, number: "INV-2024-001", client: "Acme Marketing", date: "Apr 12, 2024", amount: "$4,500.00", status: "Paid", color: "text-green-600 bg-green-50", dot: "bg-green-500" },
-    { id: 2, number: "INV-2024-002", client: "Global Tech", date: "Apr 14, 2024", amount: "$2,100.00", status: "Pending", color: "text-amber-600 bg-amber-50", dot: "bg-amber-500" },
-    { id: 3, number: "INV-2024-003", client: "Design Studio", date: "Apr 15, 2024", amount: "$8,940.00", status: "Overdue", color: "text-red-600 bg-red-50", dot: "bg-red-500" },
-    { id: 4, number: "INV-2024-004", client: "Eco Logistics", date: "Apr 16, 2024", amount: "$1,250.00", status: "Paid", color: "text-green-600 bg-green-50", dot: "bg-green-500" },
-    { id: 5, number: "INV-2024-005", client: "Swift Solutions", date: "Apr 18, 2024", amount: "$3,300.00", status: "Draft", color: "text-slate-600 bg-slate-50", dot: "bg-slate-500" },
-  ]
+  const [invoices, setInvoices] = useState<any[]>([])
+  const [settings, setSettings] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [invRes, setRes] = await Promise.all([
+          fetch("/api/invoices"),
+          fetch("/api/settings")
+        ])
+        if (invRes.ok && setRes.ok) {
+          const invData = await invRes.json()
+          const setData = await setRes.json()
+          setInvoices(invData)
+          setSettings(setData)
+        }
+      } catch (error) {
+        console.error("Failed to fetch invoices", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const formatCurrency = (amount: number) => 
+    new Intl.NumberFormat("en-US", { style: "currency", currency: settings?.currency || "USD" }).format(amount)
+
+  const filteredInvoices = invoices.filter(inv => 
+    inv.number.toLowerCase().includes(searchValue.toLowerCase()) || 
+    inv.client.name.toLowerCase().includes(searchValue.toLowerCase())
+  )
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -35,6 +61,12 @@ export default function InvoicesPage() {
         />
         
         <div className="p-8 space-y-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+            </div>
+          ) : (
+            <>
           {/* Actions Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -70,7 +102,7 @@ export default function InvoicesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {invoices.map((invoice) => (
+                  {filteredInvoices.map((invoice) => (
                     <tr 
                       key={invoice.id} 
                       className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
@@ -82,21 +114,21 @@ export default function InvoicesPage() {
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-3">
                           <div className="size-8 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
-                            {invoice.client.charAt(0)}
+                            {invoice.client.initials}
                           </div>
-                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{invoice.client}</span>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{invoice.client.name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        {invoice.date}
+                        {new Date(invoice.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </td>
                       <td className="px-6 py-5 text-sm font-black text-slate-900 dark:text-slate-100 text-right">
-                        {invoice.amount}
+                        {formatCurrency(invoice.total)}
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex justify-center">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${invoice.color}`}>
-                            <span className={`size-1.5 rounded-full ${invoice.dot}`} />
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${invoice.statusColor}`}>
+                            <span className={`size-1.5 rounded-full ${invoice.statusDot}`} />
                             {invoice.status}
                           </span>
                         </div>
@@ -122,14 +154,13 @@ export default function InvoicesPage() {
 
             {/* Pagination Placeholder */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between">
-              <p className="text-xs text-slate-500 font-medium">Showing 5 of 42 invoices</p>
+              <p className="text-xs text-slate-500 font-medium">Showing {filteredInvoices.length} of {invoices.length} invoices</p>
               <div className="flex items-center gap-2">
                 <button className="p-1.5 text-slate-400 hover:text-primary transition-colors disabled:opacity-30">
                   <span className="material-symbols-outlined text-xl">chevron_left</span>
                 </button>
                 <div className="flex items-center gap-1">
                   <button className="w-7 h-7 text-xs font-bold bg-primary text-white rounded">1</button>
-                  <button className="w-7 h-7 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded">2</button>
                 </div>
                 <button className="p-1.5 text-slate-400 hover:text-primary transition-colors">
                   <span className="material-symbols-outlined text-xl">chevron_right</span>
@@ -137,6 +168,8 @@ export default function InvoicesPage() {
               </div>
             </div>
           </div>
+          </>
+          )}
         </div>
       </main>
     </div>

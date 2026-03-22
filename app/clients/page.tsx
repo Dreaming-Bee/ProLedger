@@ -13,83 +13,56 @@ export default function ClientsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [filterType, setFilterType] = useState<"all" | "high" | "low">("all")
 
+  const [clients, setClients] = useState<any[]>([])
+  const [settings, setSettings] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    const isAuth = localStorage.getItem("auth")
-    if (!isAuth) {
-      router.push("/login")
+    const fetchData = async () => {
+      try {
+        const [cliRes, setRes] = await Promise.all([
+          fetch("/api/clients"),
+          fetch("/api/settings")
+        ])
+        if (cliRes.ok && setRes.ok) {
+          const cliData = await cliRes.ok ? await cliRes.json() : []
+          const setData = await setRes.ok ? await setRes.json() : null
+          setClients(cliData)
+          setSettings(setData)
+        }
+      } catch (error) {
+        console.error("Failed to fetch clients", error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [router])
+    fetchData()
+  }, [])
 
   const stats = [
     {
       label: "Total Active Clients",
-      value: "1,284",
+      value: clients.length.toString(),
       change: "+4%",
       icon: "trending_up",
     },
     {
-      label: "Pending Invoices",
-      value: "$42,850",
-      sublabel: "12 clients",
+      label: "Total Revenue Generated",
+      value: new Intl.NumberFormat("en-US", { style: "currency", currency: settings?.currency || "USD" }).format(
+        clients.reduce((sum, c) => sum + (c.totalInvoiced || 0), 0)
+      ),
+      sublabel: `${clients.length} clients`,
     },
     {
-      label: "Retention Rate",
-      value: "98.2%",
+      label: "Average Account Size",
+      value: new Intl.NumberFormat("en-US", { style: "currency", currency: settings?.currency || "USD" }).format(
+        clients.length > 0 ? clients.reduce((sum, c) => sum + (c.totalInvoiced || 0), 0) / clients.length : 0
+      ),
       icon: "verified",
-      sublabel: "High",
+      sublabel: "Active",
     },
   ]
 
-  const clients = [
-    {
-      id: 1,
-      name: "Acme Corp",
-      initials: "AC",
-      contact: "John Doe",
-      email: "john@acme.com",
-      totalInvoiced: 12450.00,
-    },
-    {
-      id: 2,
-      name: "Global Tech",
-      initials: "GT",
-      contact: "Sarah Smith",
-      email: "s.smith@globaltech.io",
-      totalInvoiced: 8900.00,
-    },
-    {
-      id: 3,
-      name: "Starlight Inc",
-      initials: "SL",
-      contact: "Mike Johnson",
-      email: "mike@starlight.com",
-      totalInvoiced: 22100.00,
-    },
-    {
-      id: 4,
-      name: "Urban Design",
-      initials: "UD",
-      contact: "Elena Rodriguez",
-      email: "elena@urbandesign.co",
-      totalInvoiced: 5200.00,
-    },
-    {
-      id: 5,
-      name: "Nova Solutions",
-      initials: "NS",
-      contact: "David Chen",
-      email: "d.chen@nova.com",
-      totalInvoiced: 15750.00,
-    },
-    {
-      id: 6,
-      name: "Zenith Agency",
-      initials: "ZA",
-      contact: "Lisa Wong",
-      email: "lisa@zenith.agency",
-      totalInvoiced: 3100.00,
-    },
-  ]
 
   const filteredClients = useMemo(() => {
     let result = clients.filter(client => {
@@ -171,7 +144,12 @@ export default function ClientsPage() {
           </div>
         </header>
 
-        <div className="p-8 pb-4 flex flex-col gap-6 overflow-y-auto">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          </div>
+        ) : (
+          <div className="p-8 pb-4 flex flex-col gap-6 overflow-y-auto">
           {/* Stats Bar */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {stats.map((stat, idx) => (
@@ -265,7 +243,7 @@ export default function ClientsPage() {
                         <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">{client.contact}</td>
                         <td className="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">{client.email}</td>
                         <td className="px-6 py-5 text-sm font-bold text-slate-900 dark:text-slate-100">
-                          ${client.totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {new Intl.NumberFormat("en-US", { style: "currency", currency: settings?.currency || "USD" }).format(client.totalInvoiced)}
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -287,7 +265,7 @@ export default function ClientsPage() {
             {/* Pagination Footer */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/30">
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredClients.length}</span> of <span className="font-semibold text-slate-100">1,284</span> results
+                Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredClients.length}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{clients.length}</span> results
               </p>
               <div className="flex items-center gap-1">
                 <button className="p-2 text-slate-400 hover:text-primary transition-colors disabled:opacity-30"><span className="material-symbols-outlined">chevron_left</span></button>
@@ -297,8 +275,9 @@ export default function ClientsPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
-  )
+      )}
+    </main>
+  </div>
+)
 }
 
